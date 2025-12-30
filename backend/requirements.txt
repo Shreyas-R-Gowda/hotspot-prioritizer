@@ -7,10 +7,8 @@ pydantic
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
-psycopg2-binary
-python-jose[cryptography]
-passlib[bcrypt]
 bcrypt==3.2.2
 httpx
 email-validator
 shapely
+scikit-learn

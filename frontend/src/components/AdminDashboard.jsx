@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import AnalyticsWidgets from './AnalyticsWidgets';
 
 const AdminDashboard = () => {
     const [reports, setReports] = useState([]);
@@ -72,8 +73,8 @@ const AdminDashboard = () => {
                             key={status}
                             onClick={() => setFilterStatus(status)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${filterStatus === status
-                                    ? 'bg-blue-600 text-white shadow-md'
-                                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
                                 }`}
                         >
                             {status.replace('_', ' ')}
@@ -81,6 +82,8 @@ const AdminDashboard = () => {
                     ))}
                 </div>
             </div>
+
+            <AnalyticsWidgets />
 
             <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-slate-200">
                 <div className="overflow-x-auto">
@@ -110,8 +113,8 @@ const AdminDashboard = () => {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{report.category}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${report.status === 'resolved' ? 'bg-green-100 text-green-800' :
-                                                report.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-red-100 text-red-800'
+                                            report.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
                                             }`}>
                                             {report.status.replace('_', ' ')}
                                         </span>

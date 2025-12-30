@@ -32,12 +32,25 @@ def get_hotspots(
         actual_k = min(k, count)
         
         # ST_ClusterKMeans requires a window function
+        # Priority Score Formula: (Severity * 0.4) + (Upvotes * 0.3) + (Recency * 0.3)
+        # Severity: High=10, Medium=5, Low=2
+        # Recency: 10 / (1 + days_old)
         stmt = text("""
             WITH clusters AS (
                 SELECT
                     report_id,
                     ST_ClusterKMeans(location, :k) OVER () AS cid,
-                    location as geom
+                    location as geom,
+                    (
+                        (CASE 
+                            WHEN severity = 'High' THEN 10 
+                            WHEN severity = 'Medium' THEN 5 
+                            ELSE 2 
+                         END) * 0.35 +
+                        (upvote_count * 0.25) +
+                        (10.0 / (1.0 + EXTRACT(EPOCH FROM (now() - created_at)) / 86400.0)) * 0.2 +
+                        (road_importance * 0.2)
+                    ) as report_score
                 FROM reports
             )
             SELECT
@@ -45,22 +58,35 @@ def get_hotspots(
                 ST_Y(ST_Centroid(ST_Collect(geom))) AS lat,
                 ST_X(ST_Centroid(ST_Collect(geom))) AS lon,
                 COUNT(*) AS report_count,
-                SUM(1) AS score -- Placeholder for score logic
-            FROM clusters
+                SUM(report_score) AS score,
+                (ARRAY_AGG(title ORDER BY report_score DESC))[1] as top_title,
+                (ARRAY_AGG(description ORDER BY report_score DESC))[1] as top_description,
+                (ARRAY_AGG(r.report_id ORDER BY report_score DESC))[1] as top_report_id
+            FROM clusters c
+            JOIN reports r ON c.report_id = r.report_id
             WHERE cid IS NOT NULL
             GROUP BY cid
-            ORDER BY report_count DESC
+            ORDER BY score DESC
         """)
         
         try:
             rows = db.execute(stmt, {"k": actual_k}).fetchall()
             
             for i, row in enumerate(rows):
+                # Fetch image for the top report
+                image_url = None
+                top_report_image = db.query(models.ReportImage).filter(models.ReportImage.report_id == row.top_report_id).first()
+                if top_report_image:
+                    image_url = top_report_image.file_path
+
                 results.append({
                     "hotspot_id": row.cid if row.cid is not None else i,
                     "center": {"lat": row.lat, "lon": row.lon},
                     "report_count": row.report_count,
-                    "score": row.score
+                    "score": row.score,
+                    "title": row.top_title,
+                    "description": row.top_description,
+                    "image": image_url
                 })
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))

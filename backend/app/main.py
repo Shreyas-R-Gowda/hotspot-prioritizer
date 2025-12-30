@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from .routers import auth, reports, hotspots, admin
+from .routers import auth, reports, hotspots, admin, analytics
 from . import models, database
 
 models.Base.metadata.create_all(bind=database.engine)
@@ -31,6 +31,7 @@ app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(reports.router)
 app.include_router(hotspots.router)
+app.include_router(analytics.router)
 
 @app.get("/")
 def read_root():

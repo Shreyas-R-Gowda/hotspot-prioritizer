@@ -30,6 +30,8 @@ class Report(Base):
     location = Column(Geometry(geometry_type='POINT', srid=4326), nullable=False)
     address = Column(String(255))
     upvote_count = Column(Integer, default=0)
+    severity = Column(String(20), default="Medium") # Low, Medium, High
+    road_importance = Column(Integer, default=1) # 1=Street, 5=Main Road, 10=Highway
     status = Column(String(30), default="open")
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

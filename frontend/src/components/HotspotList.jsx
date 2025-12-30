@@ -21,7 +21,11 @@ const HotspotList = () => {
                 ...h,
                 count: h.report_count,
                 lat: h.center.lat,
-                lon: h.center.lon
+                lon: h.center.lon,
+                title: h.title,
+                description: h.description,
+                image: h.image,
+                score: Number(h.score)
             }));
             setHotspots(adaptedHotspots);
             setLoading(false);
@@ -105,30 +109,42 @@ const HotspotList = () => {
                             <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
 
                             <div className="flex items-center mb-6 relative z-10">
-                                <div className="bg-blue-100 p-3.5 rounded-2xl text-blue-600 mr-4 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 shadow-inner">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
+                                <div className="bg-blue-100 p-2 rounded-2xl text-blue-600 mr-4 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 shadow-inner overflow-hidden h-16 w-16 flex-shrink-0">
+                                    {hotspot.image ? (
+                                        <img src={`http://localhost:8000${hotspot.image}`} alt="Hotspot" className="w-full h-full object-cover rounded-xl" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-xl text-slate-800 group-hover:text-blue-700 transition-colors">Hotspot Zone</h3>
-                                    <div className="flex items-center mt-1">
+                                    <h3 className="font-bold text-lg text-slate-800 group-hover:text-blue-700 transition-colors line-clamp-1" title={hotspot.title || "Hotspot Zone"}>
+                                        {hotspot.title || "Hotspot Zone"}
+                                    </h3>
+                                    <div className="flex items-center mt-1 space-x-2">
                                         <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
                                             {hotspot.count} Reports
                                         </span>
+                                        {hotspot.count > 1 && (
+                                            <span className="text-xs text-slate-500">
+                                                (+{hotspot.count - 1} others)
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
                             <div className="space-y-3 text-sm text-slate-600 relative z-10 bg-slate-50 p-3 rounded-lg group-hover:bg-white transition-colors border border-transparent group-hover:border-slate-100">
-                                <div className="flex justify-between items-center">
-                                    <span className="font-medium text-slate-500">Latitude</span>
-                                    <span className="font-mono bg-white px-2 py-1 rounded border border-slate-200 text-slate-700 shadow-sm">{hotspot.lat.toFixed(5)}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="font-medium text-slate-500">Longitude</span>
-                                    <span className="font-mono bg-white px-2 py-1 rounded border border-slate-200 text-slate-700 shadow-sm">{hotspot.lon.toFixed(5)}</span>
+                                <p className="text-xs text-slate-500 line-clamp-2 italic mb-2">
+                                    "{hotspot.description || "No description available"}"
+                                </p>
+                                <div className="flex justify-between items-center border-t border-slate-200 pt-2">
+                                    <span className="font-medium text-slate-500">Score</span>
+                                    <span className="font-bold text-blue-600">{hotspot.score?.toFixed(1) || "N/A"}</span>
                                 </div>
                             </div>
                         </div>

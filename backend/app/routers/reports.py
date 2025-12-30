@@ -9,6 +9,9 @@ from ..deps.roles import get_current_user
 import shutil
 import os
 import uuid
+from ..ml.classifier import predict_severity
+from ..ml.duplicates import check_duplicate
+import httpx
 
 router = APIRouter(
     prefix="/reports",
@@ -22,6 +25,7 @@ def create_report(
     description: str = Form(None),
     lat: float = Form(...),
     lon: float = Form(...),
+    road_importance: int = Form(1), # Default 1 (Street)
     image: UploadFile = File(None),
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user)
@@ -51,7 +55,67 @@ def create_report(
         title=title,
         description=description,
         location=location_wkt,
+        road_importance=road_importance
     )
+
+    # ML: Predict Severity if image exists
+    # ML: Predict Severity & Category using AI Service (Microservice)
+    ai_severity = None
+    ai_category = None
+    
+    if image_url:
+        try:
+            # Call AI Service
+            # We need to read the file again or use the bytes. 
+            # Since we saved it to disk, let's read it back.
+            with open(file_path, "rb") as f:
+                img_bytes = f.read()
+                
+            files = {'file': (filename, img_bytes, 'image/jpeg')}
+            
+            # Internal Docker URL for AI Service
+            ai_url = "http://ai_service:8000/detect"
+            
+            # Using httpx synchronously here for simplicity, ideally async
+            # Timeout is important
+            with httpx.Client(timeout=5.0) as client:
+                resp = client.post(ai_url, files=files)
+                
+            if resp.status_code == 200:
+                result = resp.json()
+                result = resp.json()
+                # If object detected, override category and severity
+                if result.get("is_garbage"):
+                    # distinguish based on detected_category
+                    cat = result.get("detected_category")
+                    if cat == "Pothole":
+                         ai_category = "Pothole / Road Defect"
+                    else:
+                         ai_category = "Garbage / Sanitation"
+                         
+                    print(f"AI: {cat} detected ({result.get('garbage_type')} - {result.get('confidence')})")
+                    
+                    # Logic: High confidence (>0.8) -> High, else Medium
+                    if result.get("confidence", 0) > 0.8:
+                        ai_severity = "High"
+                    else:
+                        ai_severity = "Medium"
+        except Exception as e:
+            print(f"AI Service Error: {e}")
+
+    # Set Category (Prioritize AI)
+    final_category = ai_category if ai_category else category
+    new_report.category = final_category
+    
+    # Set Severity
+    if ai_severity:
+        new_report.severity = ai_severity
+    elif image_url:
+        # Fallback to local heuristic if AI didn't return severity or failed
+        abs_path = os.path.abspath(file_path)
+        new_report.severity = predict_severity(abs_path)
+    else:
+        new_report.severity = "Medium" # Default
     
     db.add(new_report)
     db.commit()
@@ -77,8 +141,23 @@ def create_report(
         "lon": lon,
         "upvote_count": new_report.upvote_count,
         "status": new_report.status,
+        "status": new_report.status,
+        "severity": new_report.severity,
+        "road_importance": new_report.road_importance,
         "created_at": new_report.created_at
     }
+
+@router.post("/check-duplicates", response_model=list[dict])
+def check_duplicates_endpoint(
+    description: str = Form(...),
+    db: Session = Depends(database.get_db)
+):
+    """
+    Check for potential duplicates based on description.
+    Returns a list of similar reports.
+    """
+    duplicates = check_duplicate(db, description)
+    return duplicates
 
 @router.post("/{report_id}/upvote", response_model=dict)
 def upvote_report(
@@ -240,7 +319,8 @@ def get_report_detail(
             "name": creator.name,
             "email": creator.email
         } if creator else None,
-        "is_upvoted": is_upvoted
+        "is_upvoted": is_upvoted,
+        "road_importance": report.road_importance
     }
 
 from ..deps.roles import require_role
@@ -287,7 +367,8 @@ def get_reports(
             "upvote_count": r.upvote_count,
             "status": r.status,
             "created_at": r.created_at,
-            "is_upvoted": r.report_id in upvoted_ids
+            "is_upvoted": r.report_id in upvoted_ids,
+            "road_importance": r.road_importance
         }
         results.append(r_dict)
         
@@ -332,7 +413,8 @@ def update_report_status(
         "upvote_count": report.upvote_count,
         "status": report.status,
         "created_at": report.created_at,
-        "is_upvoted": False # Context specific, maybe fetch if needed
+        "is_upvoted": False, # Context specific, maybe fetch if needed
+        "road_importance": report.road_importance
     }
 
 @router.post("/{report_id}/assign", response_model=dict)

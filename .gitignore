@@ -48,3 +48,5 @@ build/
 # Logs
 *.log
 logs/
+
+media/

@@ -62,13 +62,25 @@ const ReportForm = () => {
 
     const getLocation = () => {
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((position) => {
-                setFormData({
-                    ...formData,
-                    lat: position.coords.latitude,
-                    lon: position.coords.longitude
-                });
-            });
+            setMessage('Fetching location...');
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setFormData({
+                        ...formData,
+                        lat: position.coords.latitude,
+                        lon: position.coords.longitude
+                    });
+                    setMessage('Location updated!');
+                    setTimeout(() => setMessage(''), 2000);
+                },
+                (error) => {
+                    console.error("Geolocation error:", error);
+                    setMessage("Error: Could not fetch location. Please ensure GPS is enabled.");
+                },
+                { enableHighAccuracy: true }
+            );
+        } else {
+            setMessage("Error: Geolocation not supported.");
         }
     };
 
@@ -142,9 +154,7 @@ const ReportForm = () => {
             // Retrieve token from localStorage
             const token = localStorage.getItem('token');
             const config = {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                }
+                headers: {}
             };
 
             if (token) {
