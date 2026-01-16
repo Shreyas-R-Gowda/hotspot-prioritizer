@@ -1,0 +1,33 @@
+.card {
+    background-color: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card-interactive {
+    cursor: pointer;
+}
+
+.card-interactive:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.card-p-none {
+    padding: 0;
+}
+
+.card-p-sm {
+    padding: var(--spacing-sm);
+}
+
+.card-p-md {
+    padding: var(--spacing-md);
+}
+
+.card-p-lg {
+    padding: var(--spacing-lg);
+}

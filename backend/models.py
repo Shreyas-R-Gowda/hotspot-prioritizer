@@ -1,0 +1,112 @@
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Enum, Text, Float
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from geoalchemy2 import Geometry
+from pgvector.sqlalchemy import Vector
+from database import Base
+import enum
+
+class UserRole(str, enum.Enum):
+    citizen = "citizen"
+    admin = "admin"
+
+class ReportStatus(str, enum.Enum):
+    pending = "pending"
+    assigned = "assigned"
+    in_progress = "in_progress"
+    resolved = "resolved" # Waiting for citizen verification
+    closed = "closed"     # Verified by citizen
+    reopened = "reopened" # Rejected by citizen
+    rejected = "rejected"
+
+class ReportSeverity(str, enum.Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
+
+class ReportPriority(str, enum.Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
+
+class Department(Base):
+    __tablename__ = "departments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True) # e.g., Roads, Drainage
+    slug = Column(String, unique=True)
+    
+    teams = relationship("FieldTeam", back_populates="department")
+    reports = relationship("Report", back_populates="department")
+
+class FieldTeam(Base):
+    __tablename__ = "field_teams"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    status = Column(String, default="active") # active, busy, offline
+    current_lat = Column(Float, nullable=True)
+    current_lon = Column(Float, nullable=True)
+    
+    department_id = Column(Integer, ForeignKey("departments.id"))
+    department = relationship("Department", back_populates="teams")
+    reports = relationship("Report", back_populates="assigned_team")
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    role = Column(Enum(UserRole), default=UserRole.citizen)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    reports = relationship("Report", back_populates="owner")
+    votes = relationship("Vote", back_populates="user")
+
+class Report(Base):
+    __tablename__ = "reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    description = Column(Text)
+    category = Column(String, index=True)
+    status = Column(Enum(ReportStatus), default=ReportStatus.pending)
+    severity = Column(Enum(ReportSeverity), default=ReportSeverity.medium)
+    priority = Column(Enum(ReportPriority), default=ReportPriority.medium, index=True)
+    
+    image_url = Column(String, nullable=True)
+    resolution_image_url = Column(String, nullable=True) # Proof of work
+    citizen_feedback = Column(Text, nullable=True) # Reason for reopening
+    
+    # Spatial column: Point in WGS84 (SRID 4326)
+    location = Column(Geometry("POINT", srid=4326))
+    
+    # Embedding for duplicate detection
+    embedding = Column(Vector(384))
+    
+    upvotes = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
+    assigned_team_id = Column(Integer, ForeignKey("field_teams.id"), nullable=True)
+    
+    owner = relationship("User", back_populates="reports")
+    department = relationship("Department", back_populates="reports")
+    assigned_team = relationship("FieldTeam", back_populates="reports")
+    votes = relationship("Vote", back_populates="report")
+
+class Vote(Base):
+    __tablename__ = "votes"
+
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), primary_key=True)
+    value = Column(Integer) # 1 for upvote, -1 for downvote
+
+    user = relationship("User", back_populates="votes")
+    report = relationship("Report", back_populates="votes")

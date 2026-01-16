@@ -1,0 +1,61 @@
+services:
+  # Backend Service
+  - type: web
+    name: citizen-backend
+    env: python
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port 10000"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: citizen-db
+          property: connectionString
+      - key: AI_DUPLICATE_URL
+        fromService:
+          type: pserv
+          name: citizen-ai-duplicate
+          property: hostport
+      - key: AI_LLM_URL
+        fromService:
+          type: pserv
+          name: citizen-ai-llm
+          property: hostport
+      - key: OPENAI_API_KEY
+        sync: false
+
+  # Frontend Service
+  - type: web
+    name: citizen-frontend
+    env: node
+    buildCommand: "cd frontend/cityreport && npm install && npm run build"
+    staticPublishPath: ./frontend/cityreport/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: citizen-backend
+          property: url
+
+  # AI Duplicate Service (Private)
+  - type: pserv
+    name: citizen-ai-duplicate
+    env: python
+    buildCommand: "pip install -r ai-duplicate/requirements.txt"
+    startCommand: "cd ai-duplicate && uvicorn service:app --host 0.0.0.0 --port 10000"
+
+  # AI LLM Service (Private)
+  - type: pserv
+    name: citizen-ai-llm
+    env: python
+    buildCommand: "pip install -r ai-llm/requirements.txt"
+    startCommand: "cd ai-llm && uvicorn service:app --host 0.0.0.0 --port 10000"
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+
+databases:
+  - name: citizen-db
+    databaseName: citizen_ai
+    user: admin
+    plan: free # or starter
+    ipAllowList: [] # Allow all for now, restrict in prod

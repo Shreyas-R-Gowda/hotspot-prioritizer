@@ -1,60 +1,60 @@
-version: '3.8'
-
 services:
-  db:
-    image: postgis/postgis:15-3.3
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: hotspot_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init_db:/docker-entrypoint-initdb.d
-    ports:
-      - "5433:5432"
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   backend:
     build: ./backend
-    volumes:
-      - ./backend:/app
-      - ./media:/app/media
+    container_name: backend
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://postgres:password@db:5432/hotspot_db
-      SECRET_KEY: supersecretkey
-      ALGORITHM: HS256
-      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      - DATABASE_URL=postgresql+asyncpg://admin:admin123@db:5432/citizen_ai
+      - AI_DUPLICATE_URL=http://ai-duplicate:9001
+      - AI_LLM_URL=http://ai-llm:9002
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
-      db:
-        condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-  ai_service:
-    build: ./ai_service
-    ports:
-      - "8001:8000"
-    volumes:
-      - ./ai_service:/app
-    environment:
-      - PORT=8000
+      - db
+      - ai-duplicate
+      - ai-llm
 
   frontend:
     build: ./frontend
+    container_name: frontend
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - "3000:80"
+
+  ai-duplicate:
+    build: ./ai-duplicate
+    container_name: ai-duplicate
+    ports:
+      - "9001:9001"
+
+  ai-llm:
+    build: ./ai-llm
+    container_name: ai-llm
+    ports:
+      - "9002:9002"
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+  nginx:
+    build: ./nginx
+    container_name: nginx
+    ports:
+      - "80:80"
     depends_on:
       - backend
+      - frontend
+
+  db:
+    image: ankane/pgvector:v0.5.1 # Includes PostGIS and pgvector
+    container_name: postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin123
+      - POSTGRES_DB=citizen_ai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
 
 volumes:
-  postgres_data:
+  pgdata:
