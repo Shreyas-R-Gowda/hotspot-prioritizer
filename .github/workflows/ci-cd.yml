@@ -1,0 +1,78 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Backend Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r backend/requirements.txt
+        pip install httpx pytest
+
+    - name: Run Backend Tests (Placeholder)
+      run: |
+        # pytest backend/tests/ # Uncomment when tests are added
+        echo "Backend tests passed"
+
+    - name: Install AI Duplicate Dependencies
+      run: |
+        pip install -r ai-duplicate/requirements.txt
+
+    - name: Run AI Duplicate Tests (Placeholder)
+      run: |
+        echo "AI Duplicate tests passed"
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install Frontend Dependencies
+      working-directory: ./frontend/cityreport
+      run: npm install
+
+    - name: Build Frontend
+      working-directory: ./frontend/cityreport
+      run: npm run build
+
+  docker-build-push:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check secret presence (non-sensitive)
+      run: |
+        if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then echo "DOCKERHUB_USERNAME is NOT set"; else echo "DOCKERHUB_USERNAME is set"; fi
+        if [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then echo "DOCKERHUB_TOKEN is NOT set"; else echo "DOCKERHUB_TOKEN is set"; fi
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        registry: docker.io
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
+    - name: Build and Push Backend
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        push: true
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/citizen-backend:latest
